@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Resolve repo root from this script's location.
-repo_root="$(cd "$(dirname "$0")/.." && pwd)"
+# Resolve repo root using git so symlinked hooks still work.
+repo_root="$(git rev-parse --show-toplevel)"
 cd "$repo_root"
 
 nb="garble.ipynb"
