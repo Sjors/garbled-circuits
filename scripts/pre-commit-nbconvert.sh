@@ -13,7 +13,16 @@ if ! command -v jupyter >/dev/null 2>&1; then
   exit 1
 fi
 
-# Regenerate static HTML from the notebook; nbconvert comes with Jupyter.
+# Execute notebook in a fresh kernel so execution counts and outputs are deterministic.
+jupyter nbconvert \
+  --to notebook \
+  --execute \
+  --inplace \
+  --output "$nb" \
+  --ExecutePreprocessor.timeout=600 \
+  "$nb"
+
+# Regenerate static HTML from the executed notebook; nbconvert comes with Jupyter.
 jupyter nbconvert --to html "$nb" --output "$(basename "$out")" --output-dir "$repo_root"
 
 # Stage the generated HTML so the commit always has the fresh render.
