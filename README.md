@@ -24,5 +24,5 @@ This repo walks through the classical Yao garbled AND example from Section 1.1 o
 - Sophia Yakoubov, "A Gentle Introduction to Yao’s Garbled Circuits" ([PDF](https://cs-people.bu.edu/sophia/GC.pdf))
 
 ## Contribute
-- Keep the static site in sync: after editing the notebook, execute and regenerate the HTML (`jupyter nbconvert --to notebook --execute --inplace --output garble.ipynb && jupyter nbconvert --to html garble.ipynb --output garble.html`).
-- Automate it with the provided hook: `ln -sf ../../scripts/pre-commit-nbconvert.sh .git/hooks/pre-commit` (requires `jupyter`/`nbconvert`). The hook regenerates and stages the HTML on every commit.
+- Keep the static site in sync: after editing the notebook, run `./scripts/pre-commit-nbconvert.sh` to execute and regenerate the HTML.
+- Automate it with the provided hook: `ln -sf ../../scripts/pre-commit-nbconvert.sh .git/hooks/pre-commit` (requires `jupyter`/`nbconvert`). The hook regenerates and stages the HTML on every commit that modifies the notebook.
