@@ -7526,18 +7526,27 @@ a.anchor-link {
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [114]:</div>
+<div class="jp-InputPrompt jp-InputArea-prompt">In [132]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
 <div class="highlight hl-Rust"><pre><span></span><span class="p">:</span><span class="nc">dep</span><span class="w"> </span><span class="n">rand</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"0.8"</span>
 <span class="p">:</span><span class="nc">dep</span><span class="w"> </span><span class="n">sha2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"0.10"</span>
 <span class="p">:</span><span class="nc">dep</span><span class="w"> </span><span class="n">base64</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"0.21"</span>
 <span class="p">:</span><span class="nc">dep</span><span class="w"> </span><span class="n">k256</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"0.13"</span>
+<span class="p">:</span><span class="nc">dep</span><span class="w"> </span><span class="n">once_cell</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">"1"</span>
 
-<span class="k">use</span><span class="w"> </span><span class="n">rand</span><span class="p">::{</span><span class="n">rngs</span><span class="p">::</span><span class="n">OsRng</span><span class="p">,</span><span class="w"> </span><span class="n">seq</span><span class="p">::</span><span class="n">SliceRandom</span><span class="p">,</span><span class="w"> </span><span class="n">RngCore</span><span class="p">};</span>
+<span class="k">use</span><span class="w"> </span><span class="n">std</span><span class="p">::</span><span class="n">sync</span><span class="p">::{</span><span class="n">Mutex</span><span class="p">,</span><span class="w"> </span><span class="n">MutexGuard</span><span class="p">};</span>
+<span class="k">use</span><span class="w"> </span><span class="n">once_cell</span><span class="p">::</span><span class="n">sync</span><span class="p">::</span><span class="n">Lazy</span><span class="p">;</span>
+<span class="k">use</span><span class="w"> </span><span class="n">rand</span><span class="p">::{</span><span class="n">rngs</span><span class="p">::</span><span class="n">StdRng</span><span class="p">,</span><span class="w"> </span><span class="n">seq</span><span class="p">::</span><span class="n">SliceRandom</span><span class="p">,</span><span class="w"> </span><span class="n">Rng</span><span class="p">,</span><span class="w"> </span><span class="n">RngCore</span><span class="p">,</span><span class="w"> </span><span class="n">SeedableRng</span><span class="p">};</span>
 <span class="k">use</span><span class="w"> </span><span class="n">sha2</span><span class="p">::{</span><span class="n">Digest</span><span class="p">,</span><span class="w"> </span><span class="n">Sha256</span><span class="p">};</span>
 <span class="k">use</span><span class="w"> </span><span class="n">base64</span><span class="p">::{</span><span class="n">engine</span><span class="p">::</span><span class="n">general_purpose</span><span class="p">::</span><span class="n">STANDARD_NO_PAD</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="n">B64</span><span class="p">,</span><span class="w"> </span><span class="n">Engine</span><span class="p">};</span>
 <span class="k">use</span><span class="w"> </span><span class="n">k256</span><span class="p">::{</span><span class="n">elliptic_curve</span><span class="p">::{</span><span class="n">sec1</span><span class="p">::</span><span class="n">ToEncodedPoint</span><span class="p">,</span><span class="w"> </span><span class="n">Field</span><span class="p">,</span><span class="w"> </span><span class="n">Group</span><span class="p">},</span><span class="w"> </span><span class="n">EncodedPoint</span><span class="p">,</span><span class="w"> </span><span class="n">ProjectivePoint</span><span class="p">,</span><span class="w"> </span><span class="n">Scalar</span><span class="p">};</span>
+
+<span class="k">static</span><span class="w"> </span><span class="n">RNG</span><span class="p">:</span><span class="w"> </span><span class="nc">Lazy</span><span class="o">&lt;</span><span class="n">Mutex</span><span class="o">&lt;</span><span class="n">StdRng</span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Lazy</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="o">||</span><span class="w"> </span><span class="n">Mutex</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="n">StdRng</span><span class="p">::</span><span class="n">seed_from_u64</span><span class="p">(</span><span class="mi">1</span><span class="p">)));</span>
+
+<span class="k">fn</span><span class="w"> </span><span class="nf">rng</span><span class="p">()</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">MutexGuard</span><span class="o">&lt;'</span><span class="nb">static</span><span class="p">,</span><span class="w"> </span><span class="n">StdRng</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">RNG</span><span class="p">.</span><span class="n">lock</span><span class="p">().</span><span class="n">expect</span><span class="p">(</span><span class="s">"rng poisoned"</span><span class="p">)</span>
+<span class="p">}</span>
 
 <span class="cp">#[derive(Clone, Debug)]</span>
 <span class="k">struct</span><span class="w"> </span><span class="nc">WireLabels</span><span class="w"> </span><span class="p">{</span>
@@ -7547,7 +7556,8 @@ a.anchor-link {
 
 <span class="k">fn</span><span class="w"> </span><span class="nf">rand_label</span><span class="p">()</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="p">[</span><span class="kt">u8</span><span class="p">;</span><span class="w"> </span><span class="mi">16</span><span class="p">]</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">bytes</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="mi">0</span><span class="k">u8</span><span class="p">;</span><span class="w"> </span><span class="mi">16</span><span class="p">];</span>
-<span class="w">    </span><span class="n">OsRng</span><span class="p">.</span><span class="n">fill_bytes</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">bytes</span><span class="p">);</span>
+<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">r</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">rng</span><span class="p">();</span>
+<span class="w">    </span><span class="n">r</span><span class="p">.</span><span class="n">fill_bytes</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">bytes</span><span class="p">);</span>
 <span class="w">    </span><span class="n">bytes</span>
 <span class="p">}</span>
 
@@ -7603,7 +7613,7 @@ a.anchor-link {
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [115]:</div>
+<div class="jp-InputPrompt jp-InputArea-prompt">In [133]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
 <div class="highlight hl-Rust"><pre><span></span><span class="k">struct</span><span class="w"> </span><span class="nc">GarbledAnd</span><span class="w"> </span><span class="p">{</span>
@@ -7644,8 +7654,10 @@ a.anchor-link {
 <span class="w">        </span><span class="p">}</span>
 <span class="w">    </span><span class="p">}</span>
 
-<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">rng</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">rand</span><span class="p">::</span><span class="n">thread_rng</span><span class="p">();</span>
-<span class="w">    </span><span class="n">table</span><span class="p">.</span><span class="n">shuffle</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">rng</span><span class="p">);</span>
+<span class="w">    </span><span class="p">{</span>
+<span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">r</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">rng</span><span class="p">();</span>
+<span class="w">        </span><span class="n">table</span><span class="p">.</span><span class="n">shuffle</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="o">*</span><span class="n">r</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
 
 <span class="w">    </span><span class="n">GarbledAnd</span><span class="w"> </span><span class="p">{</span>
 <span class="w">        </span><span class="n">table</span><span class="p">,</span>
@@ -7664,7 +7676,7 @@ a.anchor-link {
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [116]:</div>
+<div class="jp-InputPrompt jp-InputArea-prompt">In [134]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
 <div class="highlight hl-Rust"><pre><span></span><span class="c1">// Generate one garbled AND gate instance.</span>
@@ -7704,7 +7716,7 @@ a.anchor-link {
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [117]:</div>
+<div class="jp-InputPrompt jp-InputArea-prompt">In [135]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
 <div class="highlight hl-Rust"><pre><span></span><span class="p">{</span>
@@ -7732,21 +7744,21 @@ a.anchor-link {
 <div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
 <pre>Ciphertexts (shuffled, base64) before inputs are chosen:
-  row 0: `3ccCMV5aWqofc0EX8vyEfw`
-  row 1: `6rnS+xjS9XLNuQ3t76rlDg`
-  row 2: `um3vokaR2crK7qQ7JEIvVQ`
-  row 3: `xkrLC4GDqAS/K/uSNHXjHg`
+  row 0: `BSluLup0quDMeWNH8/glMA`
+  row 1: `0yVtZqtH/mXzbNli2tK5iQ`
+  row 2: `FWNvNZ6z2eIS+e4b1/3Nsg`
+  row 3: `JEnqXL82rT+XDltbLrew+g`
 
 Input labels (base64) known to both parties (via OT/pre-share):
-  Ginny g=0: `onq6kZWd8pRYQ3Od1JiZgg`
-  Ginny g=1: `mpX0qgbbQz1+XoKyLnKB3w`
-  Evan  e=0: `Ha5ZqM4TK6yGVCtfKhOong`
-  Evan  e=1: `FsyD6iK3PhaaMzQ6xgRaMw`
+  Ginny g=0: `YRgw02QaaPlKaQ3MJdH0sA`
+  Ginny g=1: `2slIMlrBj23TJWQ3FzXzLA`
+  Evan  e=0: `VHQ9xeJNKkE7FZWEwSJt9g`
+  Evan  e=1: `7M/EyqjNe2PHy1b/Zs1gtQ`
 </pre>
 </div>
 </div>
 <div class="jp-OutputArea-child jp-OutputArea-executeResult">
-<div class="jp-OutputPrompt jp-OutputArea-prompt">Out[117]:</div>
+<div class="jp-OutputPrompt jp-OutputArea-prompt">Out[135]:</div>
 <div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain" tabindex="0">
 <pre>()</pre>
 </div>
@@ -7769,10 +7781,13 @@ Input labels (base64) known to both parties (via OT/pre-share):
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [118]:</div>
+<div class="jp-InputPrompt jp-InputArea-prompt">In [136]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
-<div class="highlight hl-Rust"><pre><span></span><span class="kd">let</span><span class="w"> </span><span class="n">ginny_pref</span><span class="p">:</span><span class="w"> </span><span class="kt">u8</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">rand</span><span class="p">::</span><span class="n">random</span><span class="p">::</span><span class="o">&lt;</span><span class="kt">bool</span><span class="o">&gt;</span><span class="p">()</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="p">};</span><span class="w"> </span><span class="c1">// Ginny decides now</span>
+<div class="highlight hl-Rust"><pre><span></span><span class="kd">let</span><span class="w"> </span><span class="n">ginny_pref</span><span class="p">:</span><span class="w"> </span><span class="kt">u8</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">r</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">rng</span><span class="p">();</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="n">r</span><span class="p">.</span><span class="n">gen_bool</span><span class="p">(</span><span class="mf">0.5</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="p">}</span>
+<span class="p">};</span><span class="w"> </span><span class="c1">// Ginny decides now</span>
 <span class="kd">let</span><span class="w"> </span><span class="n">ginny_label</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="kt">u8</span><span class="p">;</span><span class="w"> </span><span class="mi">16</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">ginny_pref</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="n">garbled</span><span class="p">.</span><span class="n">input_a</span><span class="p">.</span><span class="n">zero</span>
 <span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
@@ -7795,8 +7810,8 @@ Input labels (base64) known to both parties (via OT/pre-share):
 <div class="jp-OutputArea-child">
 <div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
-<pre>Ginny preference g=1; sending label over the secure channel:
-  label (base64): `mpX0qgbbQz1+XoKyLnKB3w`
+<pre>Ginny preference g=0; sending label over the secure channel:
+  label (base64): `YRgw02QaaPlKaQ3MJdH0sA`
 Evan receives the correct Ginny label over the secure channel.
 </pre>
 </div>
@@ -7819,7 +7834,7 @@ Evan receives the correct Ginny label over the secure channel.
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [119]:</div>
+<div class="jp-InputPrompt jp-InputArea-prompt">In [137]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
 <div class="highlight hl-Rust"><pre><span></span><span class="k">fn</span><span class="w"> </span><span class="nf">toy_ot</span><span class="p">(</span><span class="n">sender_l0</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="p">[</span><span class="kt">u8</span><span class="p">;</span><span class="w"> </span><span class="mi">16</span><span class="p">],</span><span class="w"> </span><span class="n">sender_l1</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="p">[</span><span class="kt">u8</span><span class="p">;</span><span class="w"> </span><span class="mi">16</span><span class="p">],</span><span class="w"> </span><span class="n">choice</span><span class="p">:</span><span class="w"> </span><span class="kt">u8</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="p">[</span><span class="kt">u8</span><span class="p">;</span><span class="w"> </span><span class="mi">16</span><span class="p">]</span><span class="w"> </span><span class="p">{</span>
@@ -7832,7 +7847,10 @@ Evan receives the correct Ginny label over the secure channel.
 <span class="p">}</span>
 
 <span class="c1">// Evan picks his bit and obtains the matching label via the toy OT.</span>
-<span class="kd">let</span><span class="w"> </span><span class="n">evan_pref</span><span class="p">:</span><span class="w"> </span><span class="kt">u8</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">rand</span><span class="p">::</span><span class="n">random</span><span class="p">::</span><span class="o">&lt;</span><span class="kt">bool</span><span class="o">&gt;</span><span class="p">()</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="p">};</span>
+<span class="kd">let</span><span class="w"> </span><span class="n">evan_pref</span><span class="p">:</span><span class="w"> </span><span class="kt">u8</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">r</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">rng</span><span class="p">();</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="n">r</span><span class="p">.</span><span class="n">gen_bool</span><span class="p">(</span><span class="mf">0.5</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="p">}</span>
+<span class="p">};</span>
 <span class="kd">let</span><span class="w"> </span><span class="n">evan_label</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">toy_ot</span><span class="p">(</span><span class="o">&amp;</span><span class="n">garbled</span><span class="p">.</span><span class="n">input_b</span><span class="p">.</span><span class="n">zero</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">garbled</span><span class="p">.</span><span class="n">input_b</span><span class="p">.</span><span class="n">one</span><span class="p">,</span><span class="w"> </span><span class="n">evan_pref</span><span class="p">);</span>
 <span class="fm">println!</span><span class="p">(</span><span class="s">"Evan preference e={evan_pref}; OT delivers his input label:"</span><span class="p">);</span>
 <span class="fm">println!</span><span class="p">(</span><span class="s">"  label (base64): `{}`"</span><span class="p">,</span><span class="w"> </span><span class="n">B64</span><span class="p">.</span><span class="n">encode</span><span class="p">(</span><span class="n">evan_label</span><span class="p">));</span>
@@ -7848,8 +7866,8 @@ Evan receives the correct Ginny label over the secure channel.
 <div class="jp-OutputArea-child">
 <div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
-<pre>Evan preference e=1; OT delivers his input label:
-  label (base64): `FsyD6iK3PhaaMzQ6xgRaMw`
+<pre>Evan preference e=0; OT delivers his input label:
+  label (base64): `VHQ9xeJNKkE7FZWEwSJt9g`
 </pre>
 </div>
 </div>
@@ -7871,7 +7889,7 @@ Evan receives the correct Ginny label over the secure channel.
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [120]:</div>
+<div class="jp-InputPrompt jp-InputArea-prompt">In [138]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
 <div class="highlight hl-Rust"><pre><span></span><span class="c1">// Evan evaluates once using his label and Ginny's label; keep the output label/bit for sending back.</span>
@@ -7908,7 +7926,7 @@ Evan receives the correct Ginny label over the secure channel.
 <div class="jp-OutputArea-child">
 <div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
-<pre>Recovered AND result: g=1 ∧ e=1 -&gt; 1
+<pre>Recovered AND result: g=0 ∧ e=0 -&gt; 0
 </pre>
 </div>
 </div>
@@ -7930,7 +7948,7 @@ Evan receives the correct Ginny label over the secure channel.
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [121]:</div>
+<div class="jp-InputPrompt jp-InputArea-prompt">In [139]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
 <div class="highlight hl-Rust"><pre><span></span><span class="c1">// Evan sends the output label to Ginny (no re-computation).</span>
@@ -7947,7 +7965,7 @@ Evan receives the correct Ginny label over the secure channel.
 <div class="jp-OutputArea-child">
 <div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
-<pre>Evan sends output label to Ginny (base64): `GAZzj4+Reo1kgwmN4ONrxw`
+<pre>Evan sends output label to Ginny (base64): `prOzHBw/NYXqiOUnqBmwYg`
 </pre>
 </div>
 </div>
@@ -7969,7 +7987,7 @@ Evan receives the correct Ginny label over the secure channel.
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [122]:</div>
+<div class="jp-InputPrompt jp-InputArea-prompt">In [140]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
 <div class="highlight hl-Rust"><pre><span></span><span class="c1">// Ginny decodes the label she received.</span>
@@ -7990,12 +8008,12 @@ Evan receives the correct Ginny label over the secure channel.
 <div class="jp-OutputArea-child">
 <div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
-<pre>Ginny maps the label to bit: 1
+<pre>Ginny maps the label to bit: 0
 </pre>
 </div>
 </div>
 <div class="jp-OutputArea-child jp-OutputArea-executeResult">
-<div class="jp-OutputPrompt jp-OutputArea-prompt">Out[122]:</div>
+<div class="jp-OutputPrompt jp-OutputArea-prompt">Out[140]:</div>
 <div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain" tabindex="0">
 <pre>()</pre>
 </div>
@@ -8022,15 +8040,16 @@ Evan receives the correct Ginny label over the secure channel.
 </div>
 </div>
 </div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=bbb3ff52">
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=3925fe4d">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [123]:</div>
+<div class="jp-InputPrompt jp-InputArea-prompt">In [141]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
-<div class="highlight hl-Rust"><pre><span></span><span class="cp">#[derive(Clone, Debug)]</span>
+<div class="highlight hl-Rust"><pre><span></span><span class="c1">// Deterministic OT helpers using seeded RNG</span>
+<span class="cp">#[derive(Clone, Debug)]</span>
 <span class="k">struct</span><span class="w"> </span><span class="nc">SenderOffset</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="n">point</span><span class="p">:</span><span class="w"> </span><span class="nc">ProjectivePoint</span><span class="p">,</span>
 <span class="w">    </span><span class="n">bytes</span><span class="p">:</span><span class="w"> </span><span class="nc">EncodedPoint</span><span class="p">,</span>
@@ -8052,7 +8071,9 @@ Evan receives the correct Ginny label over the secure channel.
 
 <span class="k">fn</span><span class="w"> </span><span class="nf">ot_sender_offset</span><span class="p">()</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">SenderOffset</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="c1">// Sender picks D = d·G once per OT and publishes it.</span>
-<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">d</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Scalar</span><span class="p">::</span><span class="n">random</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">OsRng</span><span class="p">);</span>
+<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">r</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">rng</span><span class="p">();</span>
+<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">d</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Scalar</span><span class="p">::</span><span class="n">random</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="o">*</span><span class="n">r</span><span class="p">);</span>
+<span class="w">    </span><span class="nb">drop</span><span class="p">(</span><span class="n">r</span><span class="p">);</span>
 <span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">point</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ProjectivePoint</span><span class="p">::</span><span class="n">GENERATOR</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="o">&amp;</span><span class="n">d</span><span class="p">;</span>
 <span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">bytes</span><span class="p">:</span><span class="w"> </span><span class="nc">EncodedPoint</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">point</span><span class="p">.</span><span class="n">to_affine</span><span class="p">().</span><span class="n">to_encoded_point</span><span class="p">(</span><span class="kc">false</span><span class="p">);</span>
 <span class="w">    </span><span class="n">SenderOffset</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">point</span><span class="p">,</span><span class="w"> </span><span class="n">bytes</span><span class="w"> </span><span class="p">}</span>
@@ -8061,10 +8082,12 @@ Evan receives the correct Ginny label over the secure channel.
 <span class="k">fn</span><span class="w"> </span><span class="nf">ot_receiver_choose</span><span class="p">(</span>
 <span class="w">    </span><span class="n">d_point</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">ProjectivePoint</span><span class="p">,</span>
 <span class="w">    </span><span class="n">choice</span><span class="p">:</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span>
-<span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="p">(</span><span class="n">ReceiverState</span><span class="p">,</span><span class="w"> </span><span class="n">ProjectivePoint</span><span class="p">,</span><span class="w"> </span><span class="n">ProjectivePoint</span><span class="p">,</span><span class="w"> </span><span class="n">EncodedPoint</span><span class="p">,</span><span class="w"> </span><span class="n">EncodedPoint</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="p">(</span><span class="n">ReceiverState</span><span class="p">,</span><span class="w"> </span><span class="n">ProjectivePoint</span><span class="p">,</span><span class="w"> </span><span class="n">ProjectivePoint</span><span class="p">,</span><span class="w"> </span><span class="n">EncodedPoint</span><span class="p">,</span><span class="w"> </span><span class="n">EncodedPoint</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="c1">// Receiver picks a keypair and embeds the choice bit into (pk, pk_plus_d).</span>
 <span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">g</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ProjectivePoint</span><span class="p">::</span><span class="n">GENERATOR</span><span class="p">;</span>
-<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">sk</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Scalar</span><span class="p">::</span><span class="n">random</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">OsRng</span><span class="p">);</span>
+<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">r</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">rng</span><span class="p">();</span>
+<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">sk</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Scalar</span><span class="p">::</span><span class="n">random</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="o">*</span><span class="n">r</span><span class="p">);</span>
+<span class="w">    </span><span class="nb">drop</span><span class="p">(</span><span class="n">r</span><span class="p">);</span>
 <span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">pk</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">g</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="o">&amp;</span><span class="n">sk</span><span class="p">;</span>
 <span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="p">(</span><span class="n">pk_base</span><span class="p">,</span><span class="w"> </span><span class="n">pk_plus_d</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">choice</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="p">(</span><span class="n">pk</span><span class="p">,</span><span class="w"> </span><span class="n">pk</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">d_point</span><span class="p">)</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="p">(</span><span class="n">pk</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">d_point</span><span class="p">,</span><span class="w"> </span><span class="n">pk</span><span class="p">)</span><span class="w"> </span><span class="p">};</span>
 <span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">pk_base_bytes</span><span class="p">:</span><span class="w"> </span><span class="nc">EncodedPoint</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">pk_base</span><span class="p">.</span><span class="n">to_affine</span><span class="p">().</span><span class="n">to_encoded_point</span><span class="p">(</span><span class="kc">false</span><span class="p">);</span>
@@ -8083,16 +8106,19 @@ Evan receives the correct Ginny label over the secure channel.
 <span class="w">    </span><span class="n">label1</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="kt">u8</span><span class="p">;</span><span class="w"> </span><span class="mi">16</span><span class="p">],</span>
 <span class="w">    </span><span class="n">pk_base</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">ProjectivePoint</span><span class="p">,</span>
 <span class="w">    </span><span class="n">pk_plus_d</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">ProjectivePoint</span><span class="p">,</span>
-<span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">SenderCiphertexts</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">SenderCiphertexts</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="c1">// Sender encrypts both labels to the two public keys using fresh randomness.</span>
 <span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">g</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ProjectivePoint</span><span class="p">::</span><span class="n">GENERATOR</span><span class="p">;</span>
 
-<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">r0_s</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Scalar</span><span class="p">::</span><span class="n">random</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">OsRng</span><span class="p">);</span>
+<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">r</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">rng</span><span class="p">();</span>
+<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">r0_s</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Scalar</span><span class="p">::</span><span class="n">random</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="o">*</span><span class="n">r</span><span class="p">);</span>
+<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">r1_s</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Scalar</span><span class="p">::</span><span class="n">random</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="o">*</span><span class="n">r</span><span class="p">);</span>
+<span class="w">    </span><span class="nb">drop</span><span class="p">(</span><span class="n">r</span><span class="p">);</span>
+
 <span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">r0</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">g</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="o">&amp;</span><span class="n">r0_s</span><span class="p">;</span>
 <span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">k0</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">hash_point</span><span class="p">(</span><span class="o">&amp;</span><span class="p">(</span><span class="n">pk_base</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="o">&amp;</span><span class="n">r0_s</span><span class="p">));</span>
 <span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">c0</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">xor_label</span><span class="p">(</span><span class="o">&amp;</span><span class="n">k0</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">label0</span><span class="p">);</span>
 
-<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">r1_s</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Scalar</span><span class="p">::</span><span class="n">random</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="n">OsRng</span><span class="p">);</span>
 <span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">r1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">g</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="o">&amp;</span><span class="n">r1_s</span><span class="p">;</span>
 <span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">k1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">hash_point</span><span class="p">(</span><span class="o">&amp;</span><span class="p">(</span><span class="n">pk_plus_d</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="o">&amp;</span><span class="n">r1_s</span><span class="p">));</span>
 <span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">c1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">xor_label</span><span class="p">(</span><span class="o">&amp;</span><span class="n">k1</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">label1</span><span class="p">);</span>
@@ -8149,7 +8175,7 @@ Evan receives the correct Ginny label over the secure channel.
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [124]:</div>
+<div class="jp-InputPrompt jp-InputArea-prompt">In [142]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
 <div class="highlight hl-Rust"><pre><span></span><span class="kd">let</span><span class="w"> </span><span class="n">offset</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ot_sender_offset</span><span class="p">();</span>
@@ -8167,7 +8193,7 @@ Evan receives the correct Ginny label over the secure channel.
 <div class="jp-OutputArea-child">
 <div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
-<pre>Sender offset D (uncompressed, base64): `BLqntB/6GNIo0Pck7PX/v/vYezn9eHxRD/9eQGneRo1vAEor3kw0p7Rsu5VSv/+wW9lphaKUuavC5L2YRUtWzcs`
+<pre>Sender offset D (uncompressed, base64): `BIUIX5SqFWLbtn2sNdGv8MbZmcc+HAQEoWz7SwJSJPaa6gZDLHlYiUp8mQnOK2yMh4oiePxUuXMa+/KIfVw7Z7k`
 </pre>
 </div>
 </div>
@@ -8239,7 +8265,7 @@ Evan uses his one secret key sk (no +D applied by him):
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [125]:</div>
+<div class="jp-InputPrompt jp-InputArea-prompt">In [143]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
 <div class="highlight hl-Rust"><pre><span></span><span class="c1">// Step 2 (receiver): embed choice into (pk, pk_plus_d) and send to sender.</span>
@@ -8261,9 +8287,9 @@ Evan uses his one secret key sk (no +D applied by him):
 <div class="jp-OutputArea-child">
 <div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
-<pre>Receiver choice bit e=1
-pk (base, uncompressed, base64): `BMmsWLqjIxToE6zKm/qDQWVTuL3cI+XzN8yeNVgV1kLtMgppkstmZ7qQjEO1FMhAACSUiFwVrrKHREbaXQt2lq8`
-pk_plus_d (shifted, uncompressed, base64): `BL59UtwyLd/h8XYbcQFheUcpa30t7n8bSQ7C4p+HvNZsynq4fuUkWSQRV4Dk/Kf/pPmuxLp/wAL1Ki75bX6RbdU`
+<pre>Receiver choice bit e=0
+pk (base, uncompressed, base64): `BIUIX5SqFWLbtn2sNdGv8MbZmcc+HAQEoWz7SwJSJPaa6gZDLHlYiUp8mQnOK2yMh4oiePxUuXMa+/KIfVw7Z7k`
+pk_plus_d (shifted, uncompressed, base64): `BIVGfSBUa5HzS1P4GXsPgt81gvvvV4YuQOcbJ3xblYQFXZ+P5A9Hqr8xYgPlZuJOGadyjMAhG6U4/Hc/T5T+FoA`
 </pre>
 </div>
 </div>
@@ -8285,7 +8311,7 @@ pk_plus_d (shifted, uncompressed, base64): `BL59UtwyLd/h8XYbcQFheUcpa30t7n8bSQ7C
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [126]:</div>
+<div class="jp-InputPrompt jp-InputArea-prompt">In [144]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
 <div class="highlight hl-Rust"><pre><span></span><span class="c1">// Step 3 (sender): encrypt both labels to (pk, pk_plus_d).</span>
@@ -8316,8 +8342,8 @@ pk_plus_d (shifted, uncompressed, base64): `BL59UtwyLd/h8XYbcQFheUcpa30t7n8bSQ7C
 <div class="jp-OutputArea-child">
 <div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
-<pre>Cipher for pk (e=0): R=BNz1fEBgwOKLUWTb99tR9q2g..., c=mtE9Xehr8DCUL69l...
-Cipher for pk_plus_d (e=1): R=BPnkUR2clHPvhJ70FVOIswrg..., c=vw4nbYVb3NLT5kVx...
+<pre>Cipher for pk (e=0): R=BIUIX5SqFWLbtn2sNdGv8MbZ..., c=6lbvV51qaGUEqz9T...
+Cipher for pk_plus_d (e=1): R=BBF2OT1f7Ha2gTOGthdoCXYF..., c=NhbJs3CJw0/wNFOq...
 </pre>
 </div>
 </div>
@@ -8339,7 +8365,7 @@ Cipher for pk_plus_d (e=1): R=BPnkUR2clHPvhJ70FVOIswrg..., c=vw4nbYVb3NLT5kVx...
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [127]:</div>
+<div class="jp-InputPrompt jp-InputArea-prompt">In [145]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
 <div class="highlight hl-Rust"><pre><span></span><span class="c1">// Step 4 (receiver): decrypt only the chosen ciphertext.</span>
@@ -8358,7 +8384,7 @@ Cipher for pk_plus_d (e=1): R=BPnkUR2clHPvhJ70FVOIswrg..., c=vw4nbYVb3NLT5kVx...
 <div class="jp-OutputArea-child">
 <div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
-<pre>Receiver recovers label for e=1 (base64, keep private): `FsyD6iK3PhaaMzQ6xgRaMw`
+<pre>Receiver recovers label for e=0 (base64, keep private): `VHQ9xeJNKkE7FZWEwSJt9g`
 </pre>
 </div>
 </div>
