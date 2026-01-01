@@ -7517,7 +7517,18 @@ a.anchor-link {
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<h1 id="Ginny-&amp;-Evan:-single-AND-gate">Ginny &amp; Evan: single AND gate<a class="anchor-link" href="#Ginny-&amp;-Evan:-single-AND-gate">¶</a></h1><p>This notebook walks through the classical Yao garbled AND example from Section 1.1 of Sophia Yakoubov’s “A Gentle Introduction to Yao’s Garbled Circuits” (<a href="https://web.mit.edu/sonka89/www/papers/2017ygc.pdf">PDF</a>). It shows how Ginny garbles a single AND gate, how labels are delivered first with a toy OT and then with a simple secp256k1 + SHA-256 OT, how Evan evaluates once, and how the output label is returned and decoded. Semi-honest only; includes a note on an optional OR-proof to prevent <code>(pk, pk)</code> cheating.</p>
+<h1 id="Garbled-Circuits">Garbled Circuits<a class="anchor-link" href="#Garbled-Circuits">¶</a></h1><p>This notebook walks through Yao garbling: first a single AND gate with toy and EC-based OT, then 3-bit equality in two flavors (regular XOR with tables, and Free XOR with a global Δ).</p>
+</div>
+</div>
+</div>
+</div>
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=a0460858">
+<div class="jp-Cell-inputWrapper" tabindex="0">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
+</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
+<h2 id="Ginny-&amp;-Evan:-single-AND-gate">Ginny &amp; Evan: single AND gate<a class="anchor-link" href="#Ginny-&amp;-Evan:-single-AND-gate">¶</a></h2>
 </div>
 </div>
 </div>
@@ -8523,6 +8534,814 @@ Evan uses his one secret key sk (no +D applied by him):
 </ol>
 <p>Cost: a few group elements + scalars. This notebook stays semi-honest; add this only if you need malicious security.</p>
 <p>References: Chaum–Pedersen (Eurocrypt ’92); Cramer–Damgård–Schoenmakers OR-proofs (CRYPTO ’94); Fiat–Shamir (1986) for NIZK via hashing.</p>
+</div>
+</div>
+</div>
+</div>
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=ceba7452">
+<div class="jp-Cell-inputWrapper" tabindex="0">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
+</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
+<h3 id="3-bit-equality:-regular-XOR-vs-Free-XOR">3-bit equality: regular XOR vs Free XOR<a class="anchor-link" href="#3-bit-equality:-regular-XOR-vs-Free-XOR">¶</a></h3><p>Alice and Bob each hold a secret 3-bit number. They only want to learn if the numbers are identical. Bob receives his three input labels via the naive OT (called three times). We show two versions of the same circuit:</p>
+<ul>
+<li><strong>Regular garbling:</strong> every XOR has a 4-row table, then two OR gates reduce the three bitwise differences.</li>
+<li><strong>Free XOR:</strong> the XORs cost nothing; only the OR gates keep tables.</li>
+</ul>
+<p>Regular circuit (3 XOR tables + 2 OR tables):</p>
+<pre><code>a0 ─⊕─┐
+       ├─≥1?─┐
+a1 ─⊕─┘       │
+        OR    ├─≥1?── diff_any (0 = equal, 1 = differ)
+a2 ─⊕─┐       │
+       └─⊕────┘
+</code></pre>
+<p>Free XOR circuit (XORs are label XORs; only ORs are garbled):</p>
+<pre><code>a0 ─⊕free─┐
+          ├─≥1?─┐
+a1 ─⊕free─┘      │
+           OR    ├─≥1?── diff_any
+a2 ─⊕free─┐      │
+          └─⊕free┘
+</code></pre>
+</div>
+</div>
+</div>
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=633820cf">
+<div class="jp-Cell-inputWrapper" tabindex="0">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea">
+<div class="jp-InputPrompt jp-InputArea-prompt">In [16]:</div>
+<div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
+<div class="cm-editor cm-s-jupyter">
+<div class="highlight hl-Rust"><pre><span></span><span class="c1">// Helpers shared by both equality demos</span>
+<span class="k">fn</span><span class="w"> </span><span class="nf">xor16</span><span class="p">(</span><span class="n">a</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="p">[</span><span class="kt">u8</span><span class="p">;</span><span class="w"> </span><span class="mi">16</span><span class="p">],</span><span class="w"> </span><span class="n">b</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="p">[</span><span class="kt">u8</span><span class="p">;</span><span class="w"> </span><span class="mi">16</span><span class="p">])</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="p">[</span><span class="kt">u8</span><span class="p">;</span><span class="w"> </span><span class="mi">16</span><span class="p">]</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">out</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="mi">0</span><span class="k">u8</span><span class="p">;</span><span class="w"> </span><span class="mi">16</span><span class="p">];</span>
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="k">in</span><span class="w"> </span><span class="mi">0</span><span class="o">..</span><span class="mi">16</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">out</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">a</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">^</span><span class="w"> </span><span class="n">b</span><span class="p">[</span><span class="n">i</span><span class="p">];</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="n">out</span>
+<span class="p">}</span>
+
+<span class="k">fn</span><span class="w"> </span><span class="nf">fmt_bits</span><span class="p">(</span><span class="n">bits</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="p">[</span><span class="kt">u8</span><span class="p">;</span><span class="w"> </span><span class="mi">3</span><span class="p">])</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">String</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">bits</span><span class="p">.</span><span class="n">iter</span><span class="p">().</span><span class="n">map</span><span class="p">(</span><span class="o">|</span><span class="n">b</span><span class="o">|</span><span class="w"> </span><span class="n">b</span><span class="p">.</span><span class="n">to_string</span><span class="p">()).</span><span class="n">collect</span><span class="p">::</span><span class="o">&lt;</span><span class="nb">Vec</span><span class="o">&lt;</span><span class="n">_</span><span class="o">&gt;&gt;</span><span class="p">().</span><span class="n">join</span><span class="p">(</span><span class="s">""</span><span class="p">)</span>
+<span class="p">}</span>
+
+<span class="cp">#[derive(Clone, Debug)]</span>
+<span class="k">struct</span><span class="w"> </span><span class="nc">BinaryGate</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">table</span><span class="p">:</span><span class="w"> </span><span class="nb">Vec</span><span class="o">&lt;</span><span class="n">Cipher</span><span class="o">&gt;</span><span class="p">,</span>
+<span class="w">    </span><span class="n">out</span><span class="p">:</span><span class="w"> </span><span class="nc">WireLabels</span><span class="p">,</span>
+<span class="w">    </span><span class="n">in_a</span><span class="p">:</span><span class="w"> </span><span class="nc">WireLabels</span><span class="p">,</span>
+<span class="w">    </span><span class="n">in_b</span><span class="p">:</span><span class="w"> </span><span class="nc">WireLabels</span><span class="p">,</span>
+<span class="p">}</span>
+
+<span class="k">fn</span><span class="w"> </span><span class="nf">garble_binary_gate_with_labels</span><span class="o">&lt;</span><span class="n">F</span><span class="o">&gt;</span><span class="p">(</span><span class="n">in_a</span><span class="p">:</span><span class="w"> </span><span class="nc">WireLabels</span><span class="p">,</span><span class="w"> </span><span class="n">in_b</span><span class="p">:</span><span class="w"> </span><span class="nc">WireLabels</span><span class="p">,</span><span class="w"> </span><span class="n">out</span><span class="p">:</span><span class="w"> </span><span class="nc">WireLabels</span><span class="p">,</span><span class="w"> </span><span class="n">truth</span><span class="p">:</span><span class="w"> </span><span class="nc">F</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">BinaryGate</span>
+<span class="k">where</span>
+<span class="w">    </span><span class="n">F</span><span class="p">:</span><span class="w"> </span><span class="nb">Fn</span><span class="p">(</span><span class="kt">u8</span><span class="p">,</span><span class="w"> </span><span class="kt">u8</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">table</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">Vec</span><span class="p">::</span><span class="n">new</span><span class="p">();</span>
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="k">in</span><span class="w"> </span><span class="mi">0</span><span class="o">..=</span><span class="mi">1</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">for</span><span class="w"> </span><span class="n">b</span><span class="w"> </span><span class="k">in</span><span class="w"> </span><span class="mi">0</span><span class="o">..=</span><span class="mi">1</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="kd">let</span><span class="w"> </span><span class="n">key</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">h</span><span class="p">(</span>
+<span class="w">                </span><span class="k">if</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="o">&amp;</span><span class="n">in_a</span><span class="p">.</span><span class="n">zero</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="o">&amp;</span><span class="n">in_a</span><span class="p">.</span><span class="n">one</span><span class="w"> </span><span class="p">},</span>
+<span class="w">                </span><span class="k">if</span><span class="w"> </span><span class="n">b</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="o">&amp;</span><span class="n">in_b</span><span class="p">.</span><span class="n">zero</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="o">&amp;</span><span class="n">in_b</span><span class="p">.</span><span class="n">one</span><span class="w"> </span><span class="p">},</span>
+<span class="w">            </span><span class="p">);</span>
+<span class="w">            </span><span class="kd">let</span><span class="w"> </span><span class="n">out_label</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">truth</span><span class="p">(</span><span class="n">a</span><span class="p">,</span><span class="w"> </span><span class="n">b</span><span class="p">)</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="o">&amp;</span><span class="n">out</span><span class="p">.</span><span class="n">one</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="o">&amp;</span><span class="n">out</span><span class="p">.</span><span class="n">zero</span><span class="w"> </span><span class="p">};</span>
+<span class="w">            </span><span class="n">table</span><span class="p">.</span><span class="n">push</span><span class="p">(</span><span class="n">encrypt</span><span class="p">(</span><span class="o">&amp;</span><span class="n">key</span><span class="p">,</span><span class="w"> </span><span class="n">out_label</span><span class="p">));</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="p">{</span>
+<span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">r</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">rng</span><span class="p">();</span>
+<span class="w">        </span><span class="n">table</span><span class="p">.</span><span class="n">shuffle</span><span class="p">(</span><span class="o">&amp;</span><span class="k">mut</span><span class="w"> </span><span class="o">*</span><span class="n">r</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="n">BinaryGate</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">table</span><span class="p">,</span><span class="w"> </span><span class="n">out</span><span class="p">,</span><span class="w"> </span><span class="n">in_a</span><span class="p">,</span><span class="w"> </span><span class="n">in_b</span><span class="w"> </span><span class="p">}</span>
+<span class="p">}</span>
+
+<span class="k">fn</span><span class="w"> </span><span class="nf">garble_binary_gate</span><span class="o">&lt;</span><span class="n">F</span><span class="o">&gt;</span><span class="p">(</span><span class="n">truth</span><span class="p">:</span><span class="w"> </span><span class="nc">F</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">BinaryGate</span>
+<span class="k">where</span>
+<span class="w">    </span><span class="n">F</span><span class="p">:</span><span class="w"> </span><span class="nb">Fn</span><span class="p">(</span><span class="kt">u8</span><span class="p">,</span><span class="w"> </span><span class="kt">u8</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">in_a</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">WireLabels</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">zero</span><span class="p">:</span><span class="w"> </span><span class="nc">rand_label</span><span class="p">(),</span><span class="w"> </span><span class="n">one</span><span class="p">:</span><span class="w"> </span><span class="nc">rand_label</span><span class="p">()</span><span class="w"> </span><span class="p">};</span>
+<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">in_b</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">WireLabels</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">zero</span><span class="p">:</span><span class="w"> </span><span class="nc">rand_label</span><span class="p">(),</span><span class="w"> </span><span class="n">one</span><span class="p">:</span><span class="w"> </span><span class="nc">rand_label</span><span class="p">()</span><span class="w"> </span><span class="p">};</span>
+<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">out</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">WireLabels</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">zero</span><span class="p">:</span><span class="w"> </span><span class="nc">rand_label</span><span class="p">(),</span><span class="w"> </span><span class="n">one</span><span class="p">:</span><span class="w"> </span><span class="nc">rand_label</span><span class="p">()</span><span class="w"> </span><span class="p">};</span>
+<span class="w">    </span><span class="n">garble_binary_gate_with_labels</span><span class="p">(</span><span class="n">in_a</span><span class="p">,</span><span class="w"> </span><span class="n">in_b</span><span class="p">,</span><span class="w"> </span><span class="n">out</span><span class="p">,</span><span class="w"> </span><span class="n">truth</span><span class="p">)</span>
+<span class="p">}</span>
+
+<span class="k">fn</span><span class="w"> </span><span class="nf">eval_gate</span><span class="p">(</span><span class="n">gate</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">BinaryGate</span><span class="p">,</span><span class="w"> </span><span class="n">la</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="p">[</span><span class="kt">u8</span><span class="p">;</span><span class="w"> </span><span class="mi">16</span><span class="p">],</span><span class="w"> </span><span class="n">lb</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="p">[</span><span class="kt">u8</span><span class="p">;</span><span class="w"> </span><span class="mi">16</span><span class="p">])</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Option</span><span class="o">&lt;</span><span class="p">([</span><span class="kt">u8</span><span class="p">;</span><span class="w"> </span><span class="mi">16</span><span class="p">],</span><span class="w"> </span><span class="kt">u8</span><span class="p">)</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">key</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">h</span><span class="p">(</span><span class="n">la</span><span class="p">,</span><span class="w"> </span><span class="n">lb</span><span class="p">);</span>
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="n">ct</span><span class="w"> </span><span class="k">in</span><span class="w"> </span><span class="o">&amp;</span><span class="n">gate</span><span class="p">.</span><span class="n">table</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="kd">let</span><span class="w"> </span><span class="n">out</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">encrypt</span><span class="p">(</span><span class="o">&amp;</span><span class="n">key</span><span class="p">,</span><span class="w"> </span><span class="n">ct</span><span class="p">);</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="n">out</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">gate</span><span class="p">.</span><span class="n">out</span><span class="p">.</span><span class="n">zero</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="nb">Some</span><span class="p">((</span><span class="n">out</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">));</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="n">out</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">gate</span><span class="p">.</span><span class="n">out</span><span class="p">.</span><span class="n">one</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="k">return</span><span class="w"> </span><span class="nb">Some</span><span class="p">((</span><span class="n">out</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">));</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="nb">None</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=a00bd51f">
+<div class="jp-Cell-inputWrapper" tabindex="0">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
+</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
+<h4 id="Run-1A:-regular-garbling-%E2%80%94-build-&amp;-show-tables">Run 1A: regular garbling — build &amp; show tables<a class="anchor-link" href="#Run-1A:-regular-garbling-%E2%80%94-build-&amp;-show-tables">¶</a></h4><p>We garble three XOR gates and two OR gates, print the shuffled tables, and keep everything for evaluation. Alice and Bob reuse the shared 3-bit secrets chosen once above; Bob’s labels would arrive via three toy OTs.</p>
+</div>
+</div>
+</div>
+</div>
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=84e82c5b">
+<div class="jp-Cell-inputWrapper" tabindex="0">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
+</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
+<h4 id="Shared-secrets-for-both-equality-runs">Shared secrets for both equality runs<a class="anchor-link" href="#Shared-secrets-for-both-equality-runs">¶</a></h4><p>Alice and Bob draw one 3-bit secret each; both the regular and Free XOR scenarios reuse these bits instead of resampling per run.</p>
+</div>
+</div>
+</div>
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=2227aa19">
+<div class="jp-Cell-inputWrapper" tabindex="0">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea">
+<div class="jp-InputPrompt jp-InputArea-prompt">In [17]:</div>
+<div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
+<div class="cm-editor cm-s-jupyter">
+<div class="highlight hl-Rust"><pre><span></span><span class="c1">// Draw Alice and Bob's 3-bit secrets once for both scenarios, deterministically to avoid churn between runs</span>
+<span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">seeded</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">StdRng</span><span class="p">::</span><span class="n">seed_from_u64</span><span class="p">(</span><span class="mi">42</span><span class="p">);</span>
+<span class="kd">let</span><span class="w"> </span><span class="n">alice_bits_shared</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="kt">u8</span><span class="p">;</span><span class="w"> </span><span class="mi">3</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span>
+<span class="w">    </span><span class="n">seeded</span><span class="p">.</span><span class="n">gen_bool</span><span class="p">(</span><span class="mf">0.5</span><span class="p">)</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span>
+<span class="w">    </span><span class="n">seeded</span><span class="p">.</span><span class="n">gen_bool</span><span class="p">(</span><span class="mf">0.5</span><span class="p">)</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span>
+<span class="w">    </span><span class="n">seeded</span><span class="p">.</span><span class="n">gen_bool</span><span class="p">(</span><span class="mf">0.5</span><span class="p">)</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span>
+<span class="p">];</span>
+<span class="kd">let</span><span class="w"> </span><span class="n">bob_bits_shared</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="kt">u8</span><span class="p">;</span><span class="w"> </span><span class="mi">3</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span>
+<span class="w">    </span><span class="n">seeded</span><span class="p">.</span><span class="n">gen_bool</span><span class="p">(</span><span class="mf">0.5</span><span class="p">)</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span>
+<span class="w">    </span><span class="n">seeded</span><span class="p">.</span><span class="n">gen_bool</span><span class="p">(</span><span class="mf">0.5</span><span class="p">)</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span>
+<span class="w">    </span><span class="n">seeded</span><span class="p">.</span><span class="n">gen_bool</span><span class="p">(</span><span class="mf">0.5</span><span class="p">)</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span>
+<span class="p">];</span>
+
+<span class="fm">println!</span><span class="p">(</span><span class="s">"Alice (A): {} (binary)"</span><span class="p">,</span><span class="w"> </span><span class="n">fmt_bits</span><span class="p">(</span><span class="o">&amp;</span><span class="n">alice_bits_shared</span><span class="p">));</span>
+<span class="fm">println!</span><span class="p">(</span><span class="s">"Bob   (B): {} (binary)"</span><span class="p">,</span><span class="w"> </span><span class="n">fmt_bits</span><span class="p">(</span><span class="o">&amp;</span><span class="n">bob_bits_shared</span><span class="p">));</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="jp-Cell-outputWrapper">
+<div class="jp-Collapser jp-OutputCollapser jp-Cell-outputCollapser">
+</div>
+<div class="jp-OutputArea jp-Cell-outputArea">
+<div class="jp-OutputArea-child">
+<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
+<pre>Alice (A): 000 (binary)
+</pre>
+</div>
+</div>
+<div class="jp-OutputArea-child">
+<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
+<pre>Bob   (B): 111 (binary)
+</pre>
+</div>
+</div>
+</div>
+</div>
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=9cd49d65">
+<div class="jp-Cell-inputWrapper" tabindex="0">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea">
+<div class="jp-InputPrompt jp-InputArea-prompt">In [18]:</div>
+<div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
+<div class="cm-editor cm-s-jupyter">
+<div class="highlight hl-Rust"><pre><span></span><span class="fm">println!</span><span class="p">(</span><span class="s">"=== Regular garbled XOR equality (3 bits) — build &amp; show tables ==="</span><span class="p">);</span>
+
+<span class="k">fn</span><span class="w"> </span><span class="nf">show_gate</span><span class="p">(</span><span class="n">name</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="kt">str</span><span class="p">,</span><span class="w"> </span><span class="n">gate</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">BinaryGate</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="fm">println!</span><span class="p">(</span><span class="s">"{name} table ({} ciphertexts):"</span><span class="p">,</span><span class="w"> </span><span class="n">gate</span><span class="p">.</span><span class="n">table</span><span class="p">.</span><span class="n">len</span><span class="p">());</span>
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="n">i</span><span class="p">,</span><span class="w"> </span><span class="n">ct</span><span class="p">)</span><span class="w"> </span><span class="k">in</span><span class="w"> </span><span class="n">gate</span><span class="p">.</span><span class="n">table</span><span class="p">.</span><span class="n">iter</span><span class="p">().</span><span class="n">enumerate</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="fm">println!</span><span class="p">(</span><span class="s">"  row {i}: {}"</span><span class="p">,</span><span class="w"> </span><span class="n">B64</span><span class="p">.</span><span class="n">encode</span><span class="p">(</span><span class="n">ct</span><span class="p">));</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="p">}</span>
+
+<span class="kd">let</span><span class="w"> </span><span class="n">alice_bits_eq</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">alice_bits_shared</span><span class="p">;</span>
+<span class="kd">let</span><span class="w"> </span><span class="n">bob_bits_eq</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">bob_bits_shared</span><span class="p">;</span>
+<span class="fm">println!</span><span class="p">(</span><span class="s">"Alice (A): {} (binary)"</span><span class="p">,</span><span class="w"> </span><span class="n">fmt_bits</span><span class="p">(</span><span class="o">&amp;</span><span class="n">alice_bits_eq</span><span class="p">));</span>
+<span class="fm">println!</span><span class="p">(</span><span class="s">"Bob   (B): {} (binary)"</span><span class="p">,</span><span class="w"> </span><span class="n">fmt_bits</span><span class="p">(</span><span class="o">&amp;</span><span class="n">bob_bits_eq</span><span class="p">));</span>
+
+<span class="kd">let</span><span class="w"> </span><span class="n">xor_gates</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="n">BinaryGate</span><span class="p">;</span><span class="w"> </span><span class="mi">3</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span>
+<span class="w">    </span><span class="n">garble_binary_gate</span><span class="p">(</span><span class="o">|</span><span class="n">a</span><span class="p">,</span><span class="w"> </span><span class="n">b</span><span class="o">|</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="o">^</span><span class="w"> </span><span class="n">b</span><span class="p">),</span>
+<span class="w">    </span><span class="n">garble_binary_gate</span><span class="p">(</span><span class="o">|</span><span class="n">a</span><span class="p">,</span><span class="w"> </span><span class="n">b</span><span class="o">|</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="o">^</span><span class="w"> </span><span class="n">b</span><span class="p">),</span>
+<span class="w">    </span><span class="n">garble_binary_gate</span><span class="p">(</span><span class="o">|</span><span class="n">a</span><span class="p">,</span><span class="w"> </span><span class="n">b</span><span class="o">|</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="o">^</span><span class="w"> </span><span class="n">b</span><span class="p">),</span>
+<span class="p">];</span>
+<span class="kd">let</span><span class="w"> </span><span class="n">or_gate_01</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">garble_binary_gate_with_labels</span><span class="p">(</span>
+<span class="w">    </span><span class="n">xor_gates</span><span class="p">[</span><span class="mi">0</span><span class="p">].</span><span class="n">out</span><span class="p">.</span><span class="n">clone</span><span class="p">(),</span>
+<span class="w">    </span><span class="n">xor_gates</span><span class="p">[</span><span class="mi">1</span><span class="p">].</span><span class="n">out</span><span class="p">.</span><span class="n">clone</span><span class="p">(),</span>
+<span class="w">    </span><span class="n">WireLabels</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">zero</span><span class="p">:</span><span class="w"> </span><span class="nc">rand_label</span><span class="p">(),</span><span class="w"> </span><span class="n">one</span><span class="p">:</span><span class="w"> </span><span class="nc">rand_label</span><span class="p">()</span><span class="w"> </span><span class="p">},</span>
+<span class="w">    </span><span class="o">|</span><span class="n">a</span><span class="p">,</span><span class="w"> </span><span class="n">b</span><span class="o">|</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">b</span><span class="p">,</span>
+<span class="w">    </span><span class="p">);</span>
+<span class="kd">let</span><span class="w"> </span><span class="n">or_gate_any</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">garble_binary_gate_with_labels</span><span class="p">(</span>
+<span class="w">    </span><span class="n">or_gate_01</span><span class="p">.</span><span class="n">out</span><span class="p">.</span><span class="n">clone</span><span class="p">(),</span>
+<span class="w">    </span><span class="n">xor_gates</span><span class="p">[</span><span class="mi">2</span><span class="p">].</span><span class="n">out</span><span class="p">.</span><span class="n">clone</span><span class="p">(),</span>
+<span class="w">    </span><span class="n">WireLabels</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">zero</span><span class="p">:</span><span class="w"> </span><span class="nc">rand_label</span><span class="p">(),</span><span class="w"> </span><span class="n">one</span><span class="p">:</span><span class="w"> </span><span class="nc">rand_label</span><span class="p">()</span><span class="w"> </span><span class="p">},</span>
+<span class="w">    </span><span class="o">|</span><span class="n">a</span><span class="p">,</span><span class="w"> </span><span class="n">b</span><span class="o">|</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">b</span><span class="p">,</span>
+<span class="w">    </span><span class="p">);</span>
+
+<span class="n">show_gate</span><span class="p">(</span><span class="s">"XOR0"</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">xor_gates</span><span class="p">[</span><span class="mi">0</span><span class="p">]);</span>
+<span class="n">show_gate</span><span class="p">(</span><span class="s">"XOR1"</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">xor_gates</span><span class="p">[</span><span class="mi">1</span><span class="p">]);</span>
+<span class="n">show_gate</span><span class="p">(</span><span class="s">"XOR2"</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">xor_gates</span><span class="p">[</span><span class="mi">2</span><span class="p">]);</span>
+<span class="n">show_gate</span><span class="p">(</span><span class="s">"OR(xor0,xor1)"</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">or_gate_01</span><span class="p">);</span>
+<span class="n">show_gate</span><span class="p">(</span><span class="s">"OR(diff01,xor2)"</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">or_gate_any</span><span class="p">);</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="jp-Cell-outputWrapper">
+<div class="jp-Collapser jp-OutputCollapser jp-Cell-outputCollapser">
+</div>
+<div class="jp-OutputArea jp-Cell-outputArea">
+<div class="jp-OutputArea-child">
+<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
+<pre>=== Regular garbled XOR equality (3 bits) — build &amp; show tables ===
+</pre>
+</div>
+</div>
+<div class="jp-OutputArea-child">
+<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
+<pre>Alice (A): 000 (binary)
+</pre>
+</div>
+</div>
+<div class="jp-OutputArea-child">
+<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
+<pre>Bob   (B): 111 (binary)
+</pre>
+</div>
+</div>
+<div class="jp-OutputArea-child">
+<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
+<pre>XOR0 table (4 ciphertexts):
+</pre>
+</div>
+</div>
+<div class="jp-OutputArea-child">
+<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
+<pre>  row 0: ZRqVuPs/LVb6NdAJPmh6XQ
+</pre>
+</div>
+</div>
+<div class="jp-OutputArea-child">
+<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
+<pre>  row 1: 0yVtZqtH/mXzbNli2tK5iQ
+</pre>
+</div>
+</div>
+<div class="jp-OutputArea-child">
+<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
+<pre>  row 2: dVCUo4/4XlQktV1VGm2S3w
+</pre>
+</div>
+</div>
+<div class="jp-OutputArea-child">
+<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
+<pre>  row 3: RHoRyq59KomhQugV4yfvlw
+</pre>
+</div>
+</div>
+<div class="jp-OutputArea-child">
+<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
+<pre>XOR1 table (4 ciphertexts):
+</pre>
+</div>
+</div>
+<div class="jp-OutputArea-child">
+<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
+<pre>  row 0: IOtdIEKtpiUjCzfPOAPhsQ
+</pre>
+</div>
+</div>
+<div class="jp-OutputArea-child">
+<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
+<pre>  row 1: GlM48i0ET/VDoMf5PwF2NA
+</pre>
+</div>
+</div>
+<div class="jp-OutputArea-child">
+<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
+<pre>  row 2: OEZJYPunyG4IQm/yEX7Sng
+</pre>
+</div>
+</div>
+<div class="jp-OutputArea-child">
+<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
+<pre>  row 3: mBXnFxB2NQ+IrMdsdNQCEQ
+</pre>
+</div>
+</div>
+<div class="jp-OutputArea-child">
+<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
+<pre>XOR2 table (4 ciphertexts):
+</pre>
+</div>
+</div>
+<div class="jp-OutputArea-child">
+<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
+<pre>  row 0: CrB8YzMxmcg/HKK6L+a3gg
+</pre>
+</div>
+</div>
+<div class="jp-OutputArea-child">
+<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
+<pre>  row 1: StSTjCItYdp7jg3d/VPAyg
+</pre>
+</div>
+</div>
+<div class="jp-OutputArea-child">
+<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
+<pre>  row 2: C8cNzrDzkm92oG8CkfESTg
+</pre>
+</div>
+</div>
+<div class="jp-OutputArea-child">
+<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
+<pre>  row 3: mz+P1NNX9JhIpRdcnDxNsw
+</pre>
+</div>
+</div>
+<div class="jp-OutputArea-child">
+<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
+<pre>OR(xor0,xor1) table (4 ciphertexts):
+</pre>
+</div>
+</div>
+<div class="jp-OutputArea-child">
+<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
+<pre>  row 0: 9igCBIJB7wtRWL15yQ+y1w
+</pre>
+</div>
+</div>
+<div class="jp-OutputArea-child">
+<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
+<pre>  row 1: 7JPfgSAVoRvs4ceQe7brqA
+</pre>
+</div>
+</div>
+<div class="jp-OutputArea-child">
+<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
+<pre>  row 2: EJN5Xfd3KXH/Dg37jbclVg
+</pre>
+</div>
+</div>
+<div class="jp-OutputArea-child">
+<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
+<pre>  row 3: uisj7tsWKWY/ZouhcDR9tw
+</pre>
+</div>
+</div>
+<div class="jp-OutputArea-child">
+<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
+<pre>OR(diff01,xor2) table (4 ciphertexts):
+</pre>
+</div>
+</div>
+<div class="jp-OutputArea-child">
+<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
+<pre>  row 0: zWY1PSAe8TFi+SZCybLIGw
+</pre>
+</div>
+</div>
+<div class="jp-OutputArea-child">
+<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
+<pre>  row 1: koR6Phw/FIDIysHvBfLCPg
+</pre>
+</div>
+</div>
+<div class="jp-OutputArea-child">
+<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
+<pre>  row 2: T6ZuX8ZJAJ1uPH20s60olg
+</pre>
+</div>
+</div>
+<div class="jp-OutputArea-child">
+<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
+<pre>  row 3: O1gwd/uElxGzz0n16Jx4bw
+</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=bb218ea0">
+<div class="jp-Cell-inputWrapper" tabindex="0">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
+</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
+<h4 id="Run-1B:-regular-garbling-%E2%80%94-evaluate">Run 1B: regular garbling — evaluate<a class="anchor-link" href="#Run-1B:-regular-garbling-%E2%80%94-evaluate">¶</a></h4><p>Reuse the tables from Run 1A, feed Alice’s bits locally, pretend Bob’s labels arrived via three toy OTs, and decode the final equality bit (1 = equal, 0 = different).</p>
+</div>
+</div>
+</div>
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=2c4b3e93">
+<div class="jp-Cell-inputWrapper" tabindex="0">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea">
+<div class="jp-InputPrompt jp-InputArea-prompt">In [19]:</div>
+<div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
+<div class="cm-editor cm-s-jupyter">
+<div class="highlight hl-Rust"><pre><span></span><span class="fm">println!</span><span class="p">(</span><span class="s">"=== Regular garbled XOR equality (3 bits) — evaluate ==="</span><span class="p">);</span>
+
+<span class="k">fn</span><span class="w"> </span><span class="nf">pick_label</span><span class="p">(</span><span class="n">bit</span><span class="p">:</span><span class="w"> </span><span class="kt">u8</span><span class="p">,</span><span class="w"> </span><span class="n">labels</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">WireLabels</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="p">[</span><span class="kt">u8</span><span class="p">;</span><span class="w"> </span><span class="mi">16</span><span class="p">]</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="n">bit</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">labels</span><span class="p">.</span><span class="n">zero</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">labels</span><span class="p">.</span><span class="n">one</span><span class="w"> </span><span class="p">}</span>
+<span class="p">}</span>
+
+<span class="kd">let</span><span class="w"> </span><span class="n">alice_labels</span><span class="p">:</span><span class="w"> </span><span class="p">[[</span><span class="kt">u8</span><span class="p">;</span><span class="w"> </span><span class="mi">16</span><span class="p">];</span><span class="w"> </span><span class="mi">3</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span>
+<span class="w">    </span><span class="n">pick_label</span><span class="p">(</span><span class="n">alice_bits_eq</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="w"> </span><span class="o">&amp;</span><span class="n">xor_gates</span><span class="p">[</span><span class="mi">0</span><span class="p">].</span><span class="n">in_a</span><span class="p">),</span>
+<span class="w">    </span><span class="n">pick_label</span><span class="p">(</span><span class="n">alice_bits_eq</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span><span class="w"> </span><span class="o">&amp;</span><span class="n">xor_gates</span><span class="p">[</span><span class="mi">1</span><span class="p">].</span><span class="n">in_a</span><span class="p">),</span>
+<span class="w">    </span><span class="n">pick_label</span><span class="p">(</span><span class="n">alice_bits_eq</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span><span class="w"> </span><span class="o">&amp;</span><span class="n">xor_gates</span><span class="p">[</span><span class="mi">2</span><span class="p">].</span><span class="n">in_a</span><span class="p">),</span>
+<span class="p">];</span>
+<span class="kd">let</span><span class="w"> </span><span class="n">bob_labels</span><span class="p">:</span><span class="w"> </span><span class="p">[[</span><span class="kt">u8</span><span class="p">;</span><span class="w"> </span><span class="mi">16</span><span class="p">];</span><span class="w"> </span><span class="mi">3</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span>
+<span class="w">    </span><span class="n">pick_label</span><span class="p">(</span><span class="n">bob_bits_eq</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="w"> </span><span class="o">&amp;</span><span class="n">xor_gates</span><span class="p">[</span><span class="mi">0</span><span class="p">].</span><span class="n">in_b</span><span class="p">),</span>
+<span class="w">    </span><span class="n">pick_label</span><span class="p">(</span><span class="n">bob_bits_eq</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span><span class="w"> </span><span class="o">&amp;</span><span class="n">xor_gates</span><span class="p">[</span><span class="mi">1</span><span class="p">].</span><span class="n">in_b</span><span class="p">),</span>
+<span class="w">    </span><span class="n">pick_label</span><span class="p">(</span><span class="n">bob_bits_eq</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span><span class="w"> </span><span class="o">&amp;</span><span class="n">xor_gates</span><span class="p">[</span><span class="mi">2</span><span class="p">].</span><span class="n">in_b</span><span class="p">),</span>
+<span class="p">];</span>
+
+<span class="kd">let</span><span class="w"> </span><span class="p">(</span><span class="n">diff0_lbl</span><span class="p">,</span><span class="w"> </span><span class="n">diff0_bit</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">eval_gate</span><span class="p">(</span><span class="o">&amp;</span><span class="n">xor_gates</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="w"> </span><span class="o">&amp;</span><span class="n">alice_labels</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="w"> </span><span class="o">&amp;</span><span class="n">bob_labels</span><span class="p">[</span><span class="mi">0</span><span class="p">]).</span><span class="n">expect</span><span class="p">(</span><span class="s">"xor0 eval"</span><span class="p">);</span>
+<span class="kd">let</span><span class="w"> </span><span class="p">(</span><span class="n">diff1_lbl</span><span class="p">,</span><span class="w"> </span><span class="n">diff1_bit</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">eval_gate</span><span class="p">(</span><span class="o">&amp;</span><span class="n">xor_gates</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span><span class="w"> </span><span class="o">&amp;</span><span class="n">alice_labels</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span><span class="w"> </span><span class="o">&amp;</span><span class="n">bob_labels</span><span class="p">[</span><span class="mi">1</span><span class="p">]).</span><span class="n">expect</span><span class="p">(</span><span class="s">"xor1 eval"</span><span class="p">);</span>
+<span class="kd">let</span><span class="w"> </span><span class="p">(</span><span class="n">diff2_lbl</span><span class="p">,</span><span class="w"> </span><span class="n">diff2_bit</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">eval_gate</span><span class="p">(</span><span class="o">&amp;</span><span class="n">xor_gates</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span><span class="w"> </span><span class="o">&amp;</span><span class="n">alice_labels</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span><span class="w"> </span><span class="o">&amp;</span><span class="n">bob_labels</span><span class="p">[</span><span class="mi">2</span><span class="p">]).</span><span class="n">expect</span><span class="p">(</span><span class="s">"xor2 eval"</span><span class="p">);</span>
+
+<span class="kd">let</span><span class="w"> </span><span class="p">(</span><span class="n">diff01_lbl</span><span class="p">,</span><span class="w"> </span><span class="n">diff01_bit</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">eval_gate</span><span class="p">(</span><span class="o">&amp;</span><span class="n">or_gate_01</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">diff0_lbl</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">diff1_lbl</span><span class="p">).</span><span class="n">expect</span><span class="p">(</span><span class="s">"or01 eval"</span><span class="p">);</span>
+<span class="kd">let</span><span class="w"> </span><span class="p">(</span><span class="n">anydiff_lbl</span><span class="p">,</span><span class="w"> </span><span class="n">anydiff_bit</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">eval_gate</span><span class="p">(</span><span class="o">&amp;</span><span class="n">or_gate_any</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">diff01_lbl</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">diff2_lbl</span><span class="p">).</span><span class="n">expect</span><span class="p">(</span><span class="s">"or-any eval"</span><span class="p">);</span>
+
+<span class="kd">let</span><span class="w"> </span><span class="n">decoded_anydiff</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">anydiff_lbl</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">or_gate_any</span><span class="p">.</span><span class="n">out</span><span class="p">.</span><span class="n">zero</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="mi">0</span>
+<span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">anydiff_lbl</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">or_gate_any</span><span class="p">.</span><span class="n">out</span><span class="p">.</span><span class="n">one</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="mi">1</span>
+<span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="fm">panic!</span><span class="p">(</span><span class="s">"unexpected label on final wire"</span><span class="p">);</span>
+<span class="p">};</span>
+<span class="fm">assert_eq!</span><span class="p">(</span><span class="n">decoded_anydiff</span><span class="p">,</span><span class="w"> </span><span class="n">anydiff_bit</span><span class="p">);</span>
+
+<span class="kd">let</span><span class="w"> </span><span class="n">eq_bit</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">anydiff_bit</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="mi">1</span><span class="k">u8</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="mi">0</span><span class="k">u8</span><span class="w"> </span><span class="p">};</span>
+<span class="fm">println!</span><span class="p">(</span><span class="s">"equality result: {}"</span><span class="p">,</span><span class="w"> </span><span class="n">eq_bit</span><span class="p">);</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="jp-Cell-outputWrapper">
+<div class="jp-Collapser jp-OutputCollapser jp-Cell-outputCollapser">
+</div>
+<div class="jp-OutputArea jp-Cell-outputArea">
+<div class="jp-OutputArea-child">
+<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
+<pre>=== Regular garbled XOR equality (3 bits) — evaluate ===
+</pre>
+</div>
+</div>
+<div class="jp-OutputArea-child">
+<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
+<pre>equality result: 0
+</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=dc102c23">
+<div class="jp-Cell-inputWrapper" tabindex="0">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
+</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
+<h4 id="Free-XOR-primer-(before-Run-2A)">Free XOR primer (before Run 2A)<a class="anchor-link" href="#Free-XOR-primer-(before-Run-2A)">¶</a></h4><p>Free XOR assigns each wire a base label <code>W0</code>; its <code>W1</code> is just <code>W0 ⊕ Δ</code> for a circuit-wide offset <code>Δ</code> known only to the garbler. XOR gates then cost nothing because the labels themselves already carry the bit:</p>
+<ul>
+<li><p>Bit 0 on a wire: evaluator holds <code>W0</code>.</p>
+</li>
+<li><p>Bit 1 on a wire: evaluator holds <code>W0 ⊕ Δ</code>.</p>
+</li>
+</ul>
+<p>Concrete combinations at an XOR gate (inputs A,B with their actual labels):</p>
+<ul>
+<li><p>(0,0): <code>A0 ⊕ B0 = W0(A) ⊕ W0(B)</code> → output should be bit 0, label <code>W0(out)</code>.</p>
+</li>
+<li><p>(1,1): <code>(W0(A) ⊕ Δ) ⊕ (W0(B) ⊕ Δ) = W0(A) ⊕ W0(B)</code> (Δ cancels) → also bit 0, same <code>W0(out)</code>.</p>
+</li>
+<li><p>(1,0): <code>(W0(A) ⊕ Δ) ⊕ W0(B) = W0(A) ⊕ W0(B) ⊕ Δ</code> → bit 1, label <code>W1(out)</code>.</p>
+</li>
+<li><p>(0,1): <code>W0(A) ⊕ (W0(B) ⊕ Δ) = W0(A) ⊕ W0(B) ⊕ Δ</code> → bit 1, same <code>W1(out)</code>.</p>
+</li>
+</ul>
+<p>So the evaluator just XORs the two input labels; Δ either cancels (for equal bits) or remains once (for differing bits), matching the correct output label without a table.</p>
+<p>For this notebook we choose <code>Δ</code> deterministically: hash a fixed tag to 16 bytes and force the low bit to 1 so <code>Δ ≠ 0</code>, which guarantees <code>W0 ≠ W1</code> on every wire. <code>Δ</code> is reused across all wires in the circuit, never revealed to the evaluator, and never derived per wire. The label values stay pseudorandom to anyone without <code>Δ</code> and the wire seeds.</p>
+</div>
+</div>
+</div>
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=38945b05">
+<div class="jp-Cell-inputWrapper" tabindex="0">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea">
+<div class="jp-InputPrompt jp-InputArea-prompt">In [20]:</div>
+<div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
+<div class="cm-editor cm-s-jupyter">
+<div class="highlight hl-Rust"><pre><span></span><span class="c1">// Free XOR helpers introduced just before the Free XOR run</span>
+<span class="k">static</span><span class="w"> </span><span class="n">DELTA</span><span class="p">:</span><span class="w"> </span><span class="nc">Lazy</span><span class="o">&lt;</span><span class="p">[</span><span class="kt">u8</span><span class="p">;</span><span class="w"> </span><span class="mi">16</span><span class="p">]</span><span class="o">&gt;</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Lazy</span><span class="p">::</span><span class="n">new</span><span class="p">(</span><span class="o">||</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">// Deterministic for the notebook: hash a fixed tag, then force LSB=1</span>
+<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">hasher</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">Sha256</span><span class="p">::</span><span class="n">new</span><span class="p">();</span>
+<span class="w">    </span><span class="n">hasher</span><span class="p">.</span><span class="n">update</span><span class="p">(</span><span class="s">b"free-xor-delta"</span><span class="p">);</span>
+<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="n">digest</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="kt">u8</span><span class="p">;</span><span class="w"> </span><span class="mi">32</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">hasher</span><span class="p">.</span><span class="n">finalize</span><span class="p">().</span><span class="n">into</span><span class="p">();</span>
+<span class="w">    </span><span class="kd">let</span><span class="w"> </span><span class="k">mut</span><span class="w"> </span><span class="n">d</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="mi">0</span><span class="k">u8</span><span class="p">;</span><span class="w"> </span><span class="mi">16</span><span class="p">];</span>
+<span class="w">    </span><span class="n">d</span><span class="p">.</span><span class="n">copy_from_slice</span><span class="p">(</span><span class="o">&amp;</span><span class="n">digest</span><span class="p">[</span><span class="o">..</span><span class="mi">16</span><span class="p">]);</span>
+<span class="w">    </span><span class="n">d</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="w"> </span><span class="o">|=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span><span class="w"> </span><span class="c1">// ensure non-zero so W0 != W1</span>
+<span class="w">    </span><span class="n">d</span>
+<span class="p">});</span>
+
+<span class="cp">#[derive(Clone, Debug)]</span>
+<span class="k">struct</span><span class="w"> </span><span class="nc">FreeWire</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">zero</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="kt">u8</span><span class="p">;</span><span class="w"> </span><span class="mi">16</span><span class="p">],</span>
+<span class="p">}</span>
+
+<span class="k">impl</span><span class="w"> </span><span class="n">FreeWire</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">fn</span><span class="w"> </span><span class="nf">one</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="p">[</span><span class="kt">u8</span><span class="p">;</span><span class="w"> </span><span class="mi">16</span><span class="p">]</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">xor16</span><span class="p">(</span><span class="o">&amp;</span><span class="bp">self</span><span class="p">.</span><span class="n">zero</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;*</span><span class="n">DELTA</span><span class="p">)</span><span class="w"> </span><span class="p">}</span>
+<span class="p">}</span>
+
+<span class="k">fn</span><span class="w"> </span><span class="nf">new_free_wire</span><span class="p">()</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">FreeWire</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">FreeWire</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">zero</span><span class="p">:</span><span class="w"> </span><span class="nc">rand_label</span><span class="p">()</span><span class="w"> </span><span class="p">}</span>
+<span class="p">}</span>
+
+<span class="k">fn</span><span class="w"> </span><span class="nf">free_labels</span><span class="p">(</span><span class="n">w</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">FreeWire</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">WireLabels</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">WireLabels</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">zero</span><span class="p">:</span><span class="w"> </span><span class="nc">w</span><span class="p">.</span><span class="n">zero</span><span class="p">,</span><span class="w"> </span><span class="n">one</span><span class="p">:</span><span class="w"> </span><span class="nc">w</span><span class="p">.</span><span class="n">one</span><span class="p">()</span><span class="w"> </span><span class="p">}</span>
+<span class="p">}</span>
+
+<span class="k">fn</span><span class="w"> </span><span class="nf">free_xor_wire</span><span class="p">(</span><span class="n">a</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">FreeWire</span><span class="p">,</span><span class="w"> </span><span class="n">b</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="nc">FreeWire</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nc">FreeWire</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">FreeWire</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">zero</span><span class="p">:</span><span class="w"> </span><span class="nc">xor16</span><span class="p">(</span><span class="o">&amp;</span><span class="n">a</span><span class="p">.</span><span class="n">zero</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">b</span><span class="p">.</span><span class="n">zero</span><span class="p">)</span><span class="w"> </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=9ac58e83">
+<div class="jp-Cell-inputWrapper" tabindex="0">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
+</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
+<h4 id="Run-2A:-Free-XOR-%E2%80%94-build-&amp;-show-tables">Run 2A: Free XOR — build &amp; show tables<a class="anchor-link" href="#Run-2A:-Free-XOR-%E2%80%94-build-&amp;-show-tables">¶</a></h4><p>Free XOR makes the XOR gates table-free; we only garble the two OR gates. Alice and Bob reuse the same 3-bit secrets sampled once above; we print the OR tables.</p>
+</div>
+</div>
+</div>
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=9a8a8453">
+<div class="jp-Cell-inputWrapper" tabindex="0">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea">
+<div class="jp-InputPrompt jp-InputArea-prompt">In [21]:</div>
+<div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
+<div class="cm-editor cm-s-jupyter">
+<div class="highlight hl-Rust"><pre><span></span><span class="fm">println!</span><span class="p">(</span><span class="s">"=== Free XOR equality (3 bits) — build &amp; show tables ==="</span><span class="p">);</span>
+
+<span class="kd">let</span><span class="w"> </span><span class="n">alice_free_bits</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">alice_bits_shared</span><span class="p">;</span>
+<span class="kd">let</span><span class="w"> </span><span class="n">bob_free_bits</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">bob_bits_shared</span><span class="p">;</span>
+
+<span class="kd">let</span><span class="w"> </span><span class="n">a_wires</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="n">FreeWire</span><span class="p">;</span><span class="w"> </span><span class="mi">3</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="n">new_free_wire</span><span class="p">(),</span><span class="w"> </span><span class="n">new_free_wire</span><span class="p">(),</span><span class="w"> </span><span class="n">new_free_wire</span><span class="p">()];</span>
+<span class="kd">let</span><span class="w"> </span><span class="n">b_wires</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="n">FreeWire</span><span class="p">;</span><span class="w"> </span><span class="mi">3</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="n">new_free_wire</span><span class="p">(),</span><span class="w"> </span><span class="n">new_free_wire</span><span class="p">(),</span><span class="w"> </span><span class="n">new_free_wire</span><span class="p">()];</span>
+
+<span class="kd">let</span><span class="w"> </span><span class="n">diff_wires</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="n">FreeWire</span><span class="p">;</span><span class="w"> </span><span class="mi">3</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span>
+<span class="w">    </span><span class="n">free_xor_wire</span><span class="p">(</span><span class="o">&amp;</span><span class="n">a_wires</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="w"> </span><span class="o">&amp;</span><span class="n">b_wires</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span>
+<span class="w">    </span><span class="n">free_xor_wire</span><span class="p">(</span><span class="o">&amp;</span><span class="n">a_wires</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span><span class="w"> </span><span class="o">&amp;</span><span class="n">b_wires</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span>
+<span class="w">    </span><span class="n">free_xor_wire</span><span class="p">(</span><span class="o">&amp;</span><span class="n">a_wires</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span><span class="w"> </span><span class="o">&amp;</span><span class="n">b_wires</span><span class="p">[</span><span class="mi">2</span><span class="p">]),</span>
+<span class="p">];</span>
+
+<span class="kd">let</span><span class="w"> </span><span class="n">or01_out</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">new_free_wire</span><span class="p">();</span>
+<span class="kd">let</span><span class="w"> </span><span class="n">or_any_out</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">new_free_wire</span><span class="p">();</span>
+
+<span class="kd">let</span><span class="w"> </span><span class="n">or_free_01</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">garble_binary_gate_with_labels</span><span class="p">(</span>
+<span class="w">    </span><span class="n">free_labels</span><span class="p">(</span><span class="o">&amp;</span><span class="n">diff_wires</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span>
+<span class="w">    </span><span class="n">free_labels</span><span class="p">(</span><span class="o">&amp;</span><span class="n">diff_wires</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span>
+<span class="w">    </span><span class="n">free_labels</span><span class="p">(</span><span class="o">&amp;</span><span class="n">or01_out</span><span class="p">),</span>
+<span class="w">    </span><span class="o">|</span><span class="n">a</span><span class="p">,</span><span class="w"> </span><span class="n">b</span><span class="o">|</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">b</span><span class="p">,</span>
+<span class="p">);</span>
+<span class="kd">let</span><span class="w"> </span><span class="n">or_free_any</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">garble_binary_gate_with_labels</span><span class="p">(</span>
+<span class="w">    </span><span class="n">free_labels</span><span class="p">(</span><span class="o">&amp;</span><span class="n">or01_out</span><span class="p">),</span>
+<span class="w">    </span><span class="n">free_labels</span><span class="p">(</span><span class="o">&amp;</span><span class="n">diff_wires</span><span class="p">[</span><span class="mi">2</span><span class="p">]),</span>
+<span class="w">    </span><span class="n">free_labels</span><span class="p">(</span><span class="o">&amp;</span><span class="n">or_any_out</span><span class="p">),</span>
+<span class="w">    </span><span class="o">|</span><span class="n">a</span><span class="p">,</span><span class="w"> </span><span class="n">b</span><span class="o">|</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">b</span><span class="p">,</span>
+<span class="w">    </span><span class="p">);</span>
+
+<span class="n">show_gate</span><span class="p">(</span><span class="s">"OR_free(diff0,diff1)"</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">or_free_01</span><span class="p">);</span>
+<span class="n">show_gate</span><span class="p">(</span><span class="s">"OR_free(diff01,diff2)"</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">or_free_any</span><span class="p">);</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="jp-Cell-outputWrapper">
+<div class="jp-Collapser jp-OutputCollapser jp-Cell-outputCollapser">
+</div>
+<div class="jp-OutputArea jp-Cell-outputArea">
+<div class="jp-OutputArea-child">
+<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
+<pre>=== Free XOR equality (3 bits) — build &amp; show tables ===
+</pre>
+</div>
+</div>
+<div class="jp-OutputArea-child">
+<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
+<pre>OR_free(diff0,diff1) table (4 ciphertexts):
+</pre>
+</div>
+</div>
+<div class="jp-OutputArea-child">
+<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
+<pre>  row 0: k2vLSmcPOru6K/1NGK+dnA
+</pre>
+</div>
+</div>
+<div class="jp-OutputArea-child">
+<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
+<pre>  row 1: gRrQkIWXwuA9caTbTADx1w
+</pre>
+</div>
+</div>
+<div class="jp-OutputArea-child">
+<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
+<pre>  row 2: DzV7yDpl1gCfA1J4Fst93w
+</pre>
+</div>
+</div>
+<div class="jp-OutputArea-child">
+<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
+<pre>  row 3: 1/9Ve+mXBczoGUWBemu4LQ
+</pre>
+</div>
+</div>
+<div class="jp-OutputArea-child">
+<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
+<pre>OR_free(diff01,diff2) table (4 ciphertexts):
+</pre>
+</div>
+</div>
+<div class="jp-OutputArea-child">
+<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
+<pre>  row 0: KMnGnUIW6fhV+aojUgEPNg
+</pre>
+</div>
+</div>
+<div class="jp-OutputArea-child">
+<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
+<pre>  row 1: YOjgTKdEjhzbImL3MjTSuw
+</pre>
+</div>
+</div>
+<div class="jp-OutputArea-child">
+<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
+<pre>  row 2: DvepaK1ceBfknye9aWv7bg
+</pre>
+</div>
+</div>
+<div class="jp-OutputArea-child">
+<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
+<pre>  row 3: /rh9vn16b9oU7tQVx8UN5w
+</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=25b91773">
+<div class="jp-Cell-inputWrapper" tabindex="0">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
+</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
+<h4 id="Run-2B:-Free-XOR-%E2%80%94-evaluate">Run 2B: Free XOR — evaluate<a class="anchor-link" href="#Run-2B:-Free-XOR-%E2%80%94-evaluate">¶</a></h4><p>Use the free XOR wiring to compute the three diff labels without tables, then pass through the two OR tables, decode, and report equality.</p>
+</div>
+</div>
+</div>
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=a3770729">
+<div class="jp-Cell-inputWrapper" tabindex="0">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea">
+<div class="jp-InputPrompt jp-InputArea-prompt">In [22]:</div>
+<div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
+<div class="cm-editor cm-s-jupyter">
+<div class="highlight hl-Rust"><pre><span></span><span class="fm">println!</span><span class="p">(</span><span class="s">"=== Free XOR equality (3 bits) — evaluate ==="</span><span class="p">);</span>
+
+<span class="k">fn</span><span class="w"> </span><span class="nf">label_with_delta</span><span class="p">(</span><span class="n">zero</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="p">[</span><span class="kt">u8</span><span class="p">;</span><span class="w"> </span><span class="mi">16</span><span class="p">],</span><span class="w"> </span><span class="n">delta</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="p">[</span><span class="kt">u8</span><span class="p">;</span><span class="w"> </span><span class="mi">16</span><span class="p">],</span><span class="w"> </span><span class="n">bit</span><span class="p">:</span><span class="w"> </span><span class="kt">u8</span><span class="p">)</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="p">[</span><span class="kt">u8</span><span class="p">;</span><span class="w"> </span><span class="mi">16</span><span class="p">]</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="n">bit</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="o">*</span><span class="n">zero</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">xor16</span><span class="p">(</span><span class="n">zero</span><span class="p">,</span><span class="w"> </span><span class="n">delta</span><span class="p">)</span><span class="w"> </span><span class="p">}</span>
+<span class="p">}</span>
+
+<span class="k">fn</span><span class="w"> </span><span class="nf">decode_with_delta</span><span class="p">(</span><span class="n">zero</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="p">[</span><span class="kt">u8</span><span class="p">;</span><span class="w"> </span><span class="mi">16</span><span class="p">],</span><span class="w"> </span><span class="n">delta</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="p">[</span><span class="kt">u8</span><span class="p">;</span><span class="w"> </span><span class="mi">16</span><span class="p">],</span><span class="w"> </span><span class="n">lbl</span><span class="p">:</span><span class="w"> </span><span class="kp">&amp;</span><span class="p">[</span><span class="kt">u8</span><span class="p">;</span><span class="w"> </span><span class="mi">16</span><span class="p">])</span><span class="w"> </span><span class="p">-&gt;</span><span class="w"> </span><span class="nb">Option</span><span class="o">&lt;</span><span class="kt">u8</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="o">*</span><span class="n">lbl</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="o">*</span><span class="n">zero</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nb">Some</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="o">*</span><span class="n">lbl</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">xor16</span><span class="p">(</span><span class="n">zero</span><span class="p">,</span><span class="w"> </span><span class="n">delta</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nb">Some</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nb">None</span><span class="w"> </span><span class="p">}</span>
+<span class="p">}</span>
+
+<span class="kd">let</span><span class="w"> </span><span class="n">delta</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">xor16</span><span class="p">(</span><span class="o">&amp;</span><span class="n">or_free_01</span><span class="p">.</span><span class="n">in_a</span><span class="p">.</span><span class="n">zero</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">or_free_01</span><span class="p">.</span><span class="n">in_a</span><span class="p">.</span><span class="n">one</span><span class="p">);</span>
+
+<span class="kd">let</span><span class="w"> </span><span class="n">alice_free_labels</span><span class="p">:</span><span class="w"> </span><span class="p">[[</span><span class="kt">u8</span><span class="p">;</span><span class="w"> </span><span class="mi">16</span><span class="p">];</span><span class="w"> </span><span class="mi">3</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span>
+<span class="w">    </span><span class="n">label_with_delta</span><span class="p">(</span><span class="o">&amp;</span><span class="n">a_wires</span><span class="p">[</span><span class="mi">0</span><span class="p">].</span><span class="n">zero</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">delta</span><span class="p">,</span><span class="w"> </span><span class="n">alice_free_bits</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span>
+<span class="w">    </span><span class="n">label_with_delta</span><span class="p">(</span><span class="o">&amp;</span><span class="n">a_wires</span><span class="p">[</span><span class="mi">1</span><span class="p">].</span><span class="n">zero</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">delta</span><span class="p">,</span><span class="w"> </span><span class="n">alice_free_bits</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span>
+<span class="w">    </span><span class="n">label_with_delta</span><span class="p">(</span><span class="o">&amp;</span><span class="n">a_wires</span><span class="p">[</span><span class="mi">2</span><span class="p">].</span><span class="n">zero</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">delta</span><span class="p">,</span><span class="w"> </span><span class="n">alice_free_bits</span><span class="p">[</span><span class="mi">2</span><span class="p">]),</span>
+<span class="p">];</span>
+<span class="kd">let</span><span class="w"> </span><span class="n">bob_free_labels</span><span class="p">:</span><span class="w"> </span><span class="p">[[</span><span class="kt">u8</span><span class="p">;</span><span class="w"> </span><span class="mi">16</span><span class="p">];</span><span class="w"> </span><span class="mi">3</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span>
+<span class="w">    </span><span class="n">label_with_delta</span><span class="p">(</span><span class="o">&amp;</span><span class="n">b_wires</span><span class="p">[</span><span class="mi">0</span><span class="p">].</span><span class="n">zero</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">delta</span><span class="p">,</span><span class="w"> </span><span class="n">bob_free_bits</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span>
+<span class="w">    </span><span class="n">label_with_delta</span><span class="p">(</span><span class="o">&amp;</span><span class="n">b_wires</span><span class="p">[</span><span class="mi">1</span><span class="p">].</span><span class="n">zero</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">delta</span><span class="p">,</span><span class="w"> </span><span class="n">bob_free_bits</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span>
+<span class="w">    </span><span class="n">label_with_delta</span><span class="p">(</span><span class="o">&amp;</span><span class="n">b_wires</span><span class="p">[</span><span class="mi">2</span><span class="p">].</span><span class="n">zero</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">delta</span><span class="p">,</span><span class="w"> </span><span class="n">bob_free_bits</span><span class="p">[</span><span class="mi">2</span><span class="p">]),</span>
+<span class="p">];</span>
+
+<span class="kd">let</span><span class="w"> </span><span class="n">diff0_lbl</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">xor16</span><span class="p">(</span><span class="o">&amp;</span><span class="n">alice_free_labels</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="w"> </span><span class="o">&amp;</span><span class="n">bob_free_labels</span><span class="p">[</span><span class="mi">0</span><span class="p">]);</span>
+<span class="kd">let</span><span class="w"> </span><span class="n">diff1_lbl</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">xor16</span><span class="p">(</span><span class="o">&amp;</span><span class="n">alice_free_labels</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span><span class="w"> </span><span class="o">&amp;</span><span class="n">bob_free_labels</span><span class="p">[</span><span class="mi">1</span><span class="p">]);</span>
+<span class="kd">let</span><span class="w"> </span><span class="n">diff2_lbl</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">xor16</span><span class="p">(</span><span class="o">&amp;</span><span class="n">alice_free_labels</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span><span class="w"> </span><span class="o">&amp;</span><span class="n">bob_free_labels</span><span class="p">[</span><span class="mi">2</span><span class="p">]);</span>
+
+<span class="kd">let</span><span class="w"> </span><span class="n">diff0_bit</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">decode_with_delta</span><span class="p">(</span><span class="o">&amp;</span><span class="n">diff_wires</span><span class="p">[</span><span class="mi">0</span><span class="p">].</span><span class="n">zero</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">delta</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">diff0_lbl</span><span class="p">).</span><span class="n">expect</span><span class="p">(</span><span class="s">"decode diff0"</span><span class="p">);</span>
+<span class="kd">let</span><span class="w"> </span><span class="n">diff1_bit</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">decode_with_delta</span><span class="p">(</span><span class="o">&amp;</span><span class="n">diff_wires</span><span class="p">[</span><span class="mi">1</span><span class="p">].</span><span class="n">zero</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">delta</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">diff1_lbl</span><span class="p">).</span><span class="n">expect</span><span class="p">(</span><span class="s">"decode diff1"</span><span class="p">);</span>
+<span class="kd">let</span><span class="w"> </span><span class="n">diff2_bit</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">decode_with_delta</span><span class="p">(</span><span class="o">&amp;</span><span class="n">diff_wires</span><span class="p">[</span><span class="mi">2</span><span class="p">].</span><span class="n">zero</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">delta</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">diff2_lbl</span><span class="p">).</span><span class="n">expect</span><span class="p">(</span><span class="s">"decode diff2"</span><span class="p">);</span>
+
+<span class="kd">let</span><span class="w"> </span><span class="p">(</span><span class="n">diff01_lbl</span><span class="p">,</span><span class="w"> </span><span class="n">diff01_bit</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">eval_gate</span><span class="p">(</span><span class="o">&amp;</span><span class="n">or_free_01</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">diff0_lbl</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">diff1_lbl</span><span class="p">).</span><span class="n">expect</span><span class="p">(</span><span class="s">"or_free_01 eval"</span><span class="p">);</span>
+<span class="kd">let</span><span class="w"> </span><span class="p">(</span><span class="n">anydiff_lbl</span><span class="p">,</span><span class="w"> </span><span class="n">anydiff_bit</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">eval_gate</span><span class="p">(</span><span class="o">&amp;</span><span class="n">or_free_any</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">diff01_lbl</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">diff2_lbl</span><span class="p">).</span><span class="n">expect</span><span class="p">(</span><span class="s">"or_free_any eval"</span><span class="p">);</span>
+
+<span class="kd">let</span><span class="w"> </span><span class="n">decoded_anydiff</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">decode_with_delta</span><span class="p">(</span><span class="o">&amp;</span><span class="n">or_any_out</span><span class="p">.</span><span class="n">zero</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">delta</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">anydiff_lbl</span><span class="p">).</span><span class="n">expect</span><span class="p">(</span><span class="s">"decode final"</span><span class="p">);</span>
+<span class="fm">assert_eq!</span><span class="p">(</span><span class="n">decoded_anydiff</span><span class="p">,</span><span class="w"> </span><span class="n">anydiff_bit</span><span class="p">);</span>
+
+<span class="kd">let</span><span class="w"> </span><span class="n">eq_bit</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">anydiff_bit</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="mi">1</span><span class="k">u8</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="mi">0</span><span class="k">u8</span><span class="w"> </span><span class="p">};</span>
+<span class="fm">println!</span><span class="p">(</span><span class="s">"equality result: {}"</span><span class="p">,</span><span class="w"> </span><span class="n">eq_bit</span><span class="p">);</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="jp-Cell-outputWrapper">
+<div class="jp-Collapser jp-OutputCollapser jp-Cell-outputCollapser">
+</div>
+<div class="jp-OutputArea jp-Cell-outputArea">
+<div class="jp-OutputArea-child">
+<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
+<pre>=== Free XOR equality (3 bits) — evaluate ===
+</pre>
+</div>
+</div>
+<div class="jp-OutputArea-child">
+<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
+<pre>equality result: 0
+</pre>
+</div>
 </div>
 </div>
 </div>
